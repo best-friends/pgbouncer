@@ -52,3 +52,39 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      - name: Clean packages
+        uses: actions/github-script@v6
+        if: ${{ github.event_name != 'pull_request' }}
+        with:
+          github-token: ${{ secrets.DELETE_PACKAGE_PAT }}
+          script: |
+            const containers = await github.paginate(github.rest.packages.getAllPackageVersionsForPackageOwnedByOrg, {
+              package_type: 'container',
+              package_name: '${{ env.PACKAGE_NAME }}',
+              org: '${{ github.repository_owner }}',
+              state: 'active',
+            });
+
+            const ignoredIDs = [];
+            for (const container of containers) {
+              if (container.metadata.container.tags.length === 0) {
+                if (ignoredIDs.shift() !== undefined) continue;
+
+                console.log(`delete: ${container.html_url}`);
+                const res = await github.rest.packages.deletePackageVersionForOrg({
+                  package_type: 'container',
+                  package_name: '${{ env.PACKAGE_NAME }}',
+                  org: '${{ github.repository_owner }}',
+                  package_version_id: container.id,
+                });
+                console.log(`status: ${res.status}: ${container.html_url}`);
+              } else {
+                // for multi architecture images
+                ignoredIDs.push(
+                  container.id,
+                  container.id,
+                );
+              }
+            }
+        env:
+          PACKAGE_NAME: pgbouncer
