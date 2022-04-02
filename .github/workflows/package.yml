@@ -1,0 +1,31 @@
+name: package
+
+on:
+  workflow_dispatch:
+
+jobs:
+  clean-packages:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/github-script@v3
+        with:
+          script: |
+            const response = await github.request(
+              "GET /${{ env.OWNER }}/packages/container/${{ env.PACKAGE_NAME }}/versions",
+              { per_page: 100 }
+            );
+            for(version of response.data) {
+              if (version.metadata.container.tags.length === 0) {
+                console.log("delete " + version.id)
+                // const deleteResponse = await github.request(
+                //  "DELETE /${{ env.OWNER }}/packages/container/${{ env.PACKAGE_NAME }}/versions/" + version.id,
+                //  {}
+                // );
+                // console.log("status " + deleteResponse.status)
+              }
+            }
+        env:
+          OWNER: orgs/${{ github.repository_owner }}
+          PACKAGE_NAME: pgbouncer
